@@ -1,0 +1,107 @@
+{
+  "__inputs": [{ "name": "DS_PROMETHEUS", "label": "Prometheus", "type": "datasource", "pluginId": "prometheus" }],
+  "__requires": [{ "type": "datasource", "id": "prometheus", "version": "1.0.0" }],
+  "uid": "forex-live",
+  "title": "Forex Scaling Model — Live Dashboard",
+  "tags": ["forex", "live", "trading"],
+  "timezone": "UTC",
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "type": "timeseries", "title": "Account Equity (USD)",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "color": {"mode": "palette-classic"}, "unit": "currencyUSD" }},
+      "targets": [{ "expr": "forex_equity", "legendFormat": "Equity" }]
+    },
+    {
+      "id": 2, "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "type": "stat", "title": "Session P&L",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "thresholds": { "mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 0}] } } },
+      "targets": [{ "expr": "forex_pnl_session", "legendFormat": "P&L" }]
+    },
+    {
+      "id": 3, "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "type": "gauge", "title": "Current Drawdown",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 0.25, "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.05}, {"color": "red", "value": 0.10}] } } },
+      "targets": [{ "expr": "forex_drawdown", "legendFormat": "DD" }]
+    },
+    {
+      "id": 4, "gridPos": {"h": 8, "w": 6, "x": 0, "y": 8},
+      "type": "stat", "title": "Trade Rate (per hour)",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [{ "expr": "forex_trade_rate_1h", "legendFormat": "Trades/hr" }]
+    },
+    {
+      "id": 5, "gridPos": {"h": 8, "w": 6, "x": 6, "y": 8},
+      "type": "gauge", "title": "Win Rate (last 100 trades)",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.45}, {"color": "green", "value": 0.55}] } } },
+      "targets": [{ "expr": "forex_win_rate_100", "legendFormat": "Win Rate" }]
+    },
+    {
+      "id": 6, "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
+      "type": "stat", "title": "Rolling Sharpe (last 200 trades)",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 3, "thresholds": { "mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "green", "value": 1.5}] } } },
+      "targets": [{ "expr": "forex_sharpe_200", "legendFormat": "Sharpe" }]
+    },
+    {
+      "id": 7, "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
+      "type": "timeseries", "title": "Inference Latency (ms)",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, rate(forex_latency_ms_bucket[5m]))", "legendFormat": "p95 latency" }, { "expr": "histogram_quantile(0.50, rate(forex_latency_ms_bucket[5m]))", "legendFormat": "p50 latency" }]
+    },
+    {
+      "id": 8, "gridPos": {"h": 6, "w": 6, "x": 0, "y": 16},
+      "type": "stat", "title": "Sentiment Bias",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 3, "min": -1, "max": 1, "thresholds": { "mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": -0.2}, {"color": "green", "value": 0.2}] } } },
+      "targets": [{ "expr": "forex_sentiment_bias", "legendFormat": "Sentiment" }]
+    },
+    {
+      "id": 9, "gridPos": {"h": 6, "w": 6, "x": 6, "y": 16},
+      "type": "stat", "title": "Drift Detected",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "mappings": [{"type": "value", "options": {"0": {"text": "OK", "color": "green"}, "1": {"text": "DRIFT ⚠", "color": "orange"}}}] } },
+      "targets": [{ "expr": "forex_drift_flag", "legendFormat": "" }]
+    },
+    {
+      "id": 10, "gridPos": {"h": 6, "w": 6, "x": 12, "y": 16},
+      "type": "stat", "title": "Circuit Breaker",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "mappings": [{"type": "value", "options": {"0": {"text": "Running ✓", "color": "green"}, "1": {"text": "HALTED 🔴", "color": "red"}}}] } },
+      "targets": [{ "expr": "forex_circuit_breaker", "legendFormat": "" }]
+    },
+    {
+      "id": 11, "gridPos": {"h": 6, "w": 6, "x": 18, "y": 16},
+      "type": "stat", "title": "Position (lots)",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
+      "targets": [{ "expr": "forex_position_lots", "legendFormat": "Lots" }]
+    },
+    {
+      "id": 12, "gridPos": {"h": 6, "w": 12, "x": 0, "y": 22},
+      "type": "timeseries", "title": "Regime Probabilities",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "targets": [
+        { "expr": "forex_regime_trending", "legendFormat": "Trending" },
+        { "expr": "forex_regime_neutral",  "legendFormat": "Neutral" },
+        { "expr": "forex_regime_mean_rev", "legendFormat": "Mean-Reverting" }
+      ]
+    },
+    {
+      "id": 13, "gridPos": {"h": 6, "w": 12, "x": 12, "y": 22},
+      "type": "stat", "title": "Total Promotions (session)",
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [{ "expr": "forex_promotions_total", "legendFormat": "Promotions" }]
+    }
+  ]
+}

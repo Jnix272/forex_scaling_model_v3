@@ -1,0 +1,47 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Data (too large for git — store in Network Volume or cloud storage)
+data/raw/
+data/processed/
+*.parquet
+*.csv
+*.h5
+
+# Model artifacts (store in Network Volume)
+checkpoints/
+exports/
+*.pt
+*.pth
+*.pkl
+
+# Logs
+logs/
+*.log
+runs/
+
+# Secrets
+.env
+.env.*
+*.key
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+forex_scaling_model.zip

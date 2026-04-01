@@ -1,0 +1,71 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Main Pipeline (demo)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["main.py"],
+      "port": 0,
+      "autoPort": true
+    },
+    {
+      "name": "GPU Training — HAELT (100 epochs)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "training/train_gpu.py",
+        "--model", "haelt",
+        "--epochs", "100",
+        "--batch-size", "512"
+      ],
+      "port": 0,
+      "autoPort": true
+    },
+    {
+      "name": "GPU Training — All Models (50 epochs, 20M ticks)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "training/train_gpu.py",
+        "--all-models",
+        "--epochs", "50",
+        "--n-ticks", "20000000"
+      ],
+      "port": 0,
+      "autoPort": true
+    },
+    {
+      "name": "Live Trading — Paper Broker (EURUSD)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "trading/live_engine.py",
+        "--broker", "paper",
+        "--pair", "EURUSD",
+        "--equity", "10000",
+        "--max-lots", "0.5"
+      ],
+      "port": 0,
+      "autoPort": true
+    },
+    {
+      "name": "JupyterLab",
+      "runtimeExecutable": "jupyter",
+      "runtimeArgs": [
+        "lab",
+        "--ip=0.0.0.0",
+        "--port=8888",
+        "--no-browser",
+        "--allow-root"
+      ],
+      "port": 8888
+    },
+    {
+      "name": "TensorBoard",
+      "runtimeExecutable": "tensorboard",
+      "runtimeArgs": [
+        "--logdir", "logs",
+        "--host", "0.0.0.0",
+        "--port", "6006"
+      ],
+      "port": 6006
+    }
+  ]
+}

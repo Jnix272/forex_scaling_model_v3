@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"DukascopyLoader\\\\|TickDataSuiteLoader\\\\|LMAXLoader\\\\|ForexDataManager\\\\|load_or_generate\" /c/Users/jemon/Downloads/forex_scaling_model_v4/forex_scaling_model/*.py)",
+      "Bash(find /c/Users/jemon/Downloads/forex_scaling_model_v4/forex_scaling_model -type f \\\\\\(-name *.py \\\\\\))",
+      "Bash(grep -E \"\\(main|app|server|run|manage\\)\\\\.py$\")",
+      "Bash(find /c/Users/jemon/Downloads/forex_scaling_model_v4/forex_scaling_model -type f -name *.py -not -path */.venv/* -not -path */__pycache__/*)",
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/jemon/Downloads/forex_scaling_model_v4/forex_scaling_model -type d -name training -o -type f -name train*.py)",
+      "Bash(grep -l \"if __name__\" /c/Users/jemon/Downloads/forex_scaling_model_v4/forex_scaling_model/*.py)",
+      "Bash(cat /c/Users/jemon/Downloads/forex_scaling_model_v4/forex_scaling_model/.env*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(.venv/Scripts/python -m pytest tests/test_models.py -x --tb=short)",
+      "Bash(.venv/Scripts/python.exe -c \"import ast; ast.parse\\(open\\(''training/train_gpu.py''\\).read\\(\\)\\); print\\(''OK''\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import ast; ast.parse\\(open\\(''training/train_gpu.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''OK''\\)\")",
+      "Bash(python -m pytest tests/test_models.py::TestMultiPairWrapper tests/test_models.py::TestMultiPairHelpers -v)",
+      "Bash(python tests/test_all.py --module models)",
+      "Bash(python -m pytest tests/test_models.py::TestMultiPairWrapper tests/test_models.py::TestMultiPairHelpers -v --tb=short)"
+    ]
+  }
+}

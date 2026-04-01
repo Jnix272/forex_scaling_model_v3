@@ -1,0 +1,234 @@
+# =============================================================================
+# Forex Scaling Model — Run Configuration
+# =============================================================================
+# Edit this file to control data download and training without CLI flags.
+#
+# Usage:
+#   python training/train_gpu.py --config config/run.yaml
+#
+# Any CLI flag you pass will override the value set here.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# DATA — source, pair, date range
+# -----------------------------------------------------------------------------
+data:
+  # Where to load ticks from.
+  # Options: synthetic | dukascopy | tds | lmax_historical | auto
+  #   synthetic      — generated in-memory (no download needed, good for testing)
+  #   dukascopy      — downloads free tick data from Dukascopy (~minutes first run)
+  #   tds            — ThinkOrSwim / TDS export file (set tds_file below)
+  #   lmax_historical — LMAX historical feed (requires LMAX credentials in .env)
+  #   auto           — tries dukascopy, falls back to synthetic
+  source: dukascopy
+
+  # Currency pair to train on (single-pair mode)
+  pair: EURUSD
+
+  # Multi-pair joint training — uncomment and list pairs to enable.
+  # When set, overrides pair: above. The model trains on all pairs simultaneously:
+  #   features are computed per-pair then concatenated → (B, T, n_pairs × F)
+  #   labels are averaged across pairs → single y per bar
+  # pairs:
+  #   - EURUSD
+  #   - GBPUSD
+  #   - USDJPY
+  #   - AUDUSD
+
+  # Learnable pair embedding dimension (appended to each pair's features before backbone).
+  # 0 = disabled (pairs just concatenated — works with all models, no extra params).
+  # 16 = recommended when using 3+ pairs (adds ~n_pairs×16 params to backbone input).
+  pair_embed_dim: 0
+
+  # Timestamp alignment across pairs when bars are missing in one pair.
+  # inner = only bars present in ALL pairs (recommended)
+  # outer = fill missing bars with NaN (may introduce noise)
+  pair_align: inner
+
+  # Date range (inclusive). Only used for dukascopy / lmax_historical / auto.
+  start: "2023-01-01"
+  end:   "2024-12-31"
+  # Dukascopy only: true = download all 24 hours; false = session-only (07–17 UTC).
+  full_day_data: false
+
+  # Total tick count for synthetic mode (ignored for real data sources)
+  n_ticks: 20_000_000
+
+  # Ticks processed per chunk — reduce if you hit RAM limits
+  # RTX 4060 / 16 GB RAM: use 250_000
+  # Cloud GPU (A100 / H100): safe at 500_000
+  chunk_size: 200_000
+
+  # Re-use cached HDF5 from a previous run (faster). Set to true to skip re-download.
+  use_cache: true
+  # Fail early if cached X/y lengths are inconsistent.
+  integrity_gate: true
+  # If integrity check fails, delete cache artifacts and rebuild automatically.
+  auto_rebuild_on_mismatch: false
+
+
+# -----------------------------------------------------------------------------
+# MODEL — architecture and dimensions
+# -----------------------------------------------------------------------------
+model:
+  # Which architecture to train.
+  # Options: haelt | tft | transformer | mamba | gnn | expert
+  #   haelt       — LSTM + Transformer hybrid (best overall)
+  #   tft         — Temporal Fusion Transformer
+  #   transformer — iTransformer (inverted attention over features)
+  #   mamba       — State-space model (fast, lower VRAM)
+  #   gnn         — Graph Neural Network over feature graph
+  #   expert      — EXPERT encoder
+  name: haelt
+
+  # Train all 6 architectures sequentially (ignores model.name above)
+  all_models: true
+
+  # Transformer / attention dimensions
+  hidden_size: 256
+  d_model:     256
+  nhead:       8
+  num_layers:  3
+  dropout:     0.1
+
+
+# -----------------------------------------------------------------------------
+# TRAINING — epochs, loss, early stopping
+# -----------------------------------------------------------------------------
+training:
+  epochs:      100
+  batch_size:  112   # 2048 = optimal for RTX 4090; use 512 for RTX 4060 8 GB
+  lr:          0.0001
+  seq_len:     60     # Input window length in bars (1-min bars → 60 = 1 hour lookback)
+  patience:    10     # Early-stop patience (epochs without improvement)
+  val_split:   0.2    # Fraction of data held out for validation
+
+  # Loss function.
+  # Options: cross_entropy | huber | asymmetric | directional_huber | sharpe_huber
+  #   cross_entropy — 3-class {sell/hold/buy} with balanced class weights (recommended)
+  #   huber         — regression on continuous RL reward signal
+  #   asymmetric    — Huber with extra penalty on wrong direction
+  #   directional_huber — Huber + explicit wrong-direction penalty
+  #   sharpe_huber  — Huber + Sharpe-style risk-adjusted term
+  loss: cross_entropy
+  direction_weight: 0.5
+  sharpe_weight: 0.2
+
+  # Label method (how targets are computed from raw bars).
+  # Options: rl_reward | triple_barrier
+  label_method: rl_reward
+
+  # Early-stopping metric.
+  # Options: sharpe | loss
+  early_stop_metric: sharpe
+  early_stop_min_delta: 0.0005
+
+  # Cross-asset source mode used by feature engineering.
+  # Options:
+  #   auto      — use real external cross-asset for real FX data sources; synthetic for synthetic FX
+  #   real      — always try external cross-asset load (Stooq)
+  #   synthetic — force synthetic correlated cross-asset block
+  #   off       — skip external load (FeatureEngineer still falls back safely)
+  cross_asset_mode: auto
+
+  # Save a checkpoint every N epochs (in addition to best-only saves)
+  save_every: 5
+
+  # Gradient clipping max norm
+  grad_clip: 1.0
+
+  weight_decay: 0.0001
+
+  # Mixed-precision training (AMP). Disable only if you get NaN losses.
+  amp: true
+
+
+# -----------------------------------------------------------------------------
+# WALK-FORWARD CROSS-VALIDATION
+# (train on past, validate on future — no look-ahead leakage)
+# -----------------------------------------------------------------------------
+walk_forward:
+  enabled: true
+  folds:   6     # Number of expanding-window folds
+
+
+# -----------------------------------------------------------------------------
+# MULTI-TASK LEARNING
+# Adds direction + return + confidence heads simultaneously
+# -----------------------------------------------------------------------------
+multitask:
+  enabled:  true
+  w_ret:    0.5   # Weight on return-prediction Huber loss
+  w_conf:   0.3   # Weight on confidence BCE loss
+
+
+# -----------------------------------------------------------------------------
+# CONTRASTIVE PRE-TRAINING (TSCL)
+# Self-supervised warm-up before supervised training
+# -----------------------------------------------------------------------------
+pretrain:
+  enabled:       true  # Encoder already trained — skip re-running TSCL
+  epochs:        30
+  regime_aware:  true   # Use regime-aware TSCL (same-regime positives + hard negatives)
+
+
+# -----------------------------------------------------------------------------
+# ENSEMBLE META-LEARNER
+# Trains a diversity-penalised meta-network over all base models
+# (only runs after all base models are trained)
+# -----------------------------------------------------------------------------
+ensemble:
+  enabled:    true
+  epochs:     10
+  div_weight: 0.1
+
+
+# -----------------------------------------------------------------------------
+# REINFORCEMENT LEARNING
+# Fine-tunes with DQN or PPO on top of supervised weights
+# -----------------------------------------------------------------------------
+rl:
+  enabled:   true
+  algo:      dqn      # Options: dqn | ppo
+  episodes:  500
+
+
+# -----------------------------------------------------------------------------
+# QUICK MODE
+# Fast sanity profile: 1-2 folds, <=8 epochs, <=5 pretrain epochs, no ensemble/RL.
+# -----------------------------------------------------------------------------
+quick:
+  enabled: false
+
+
+# -----------------------------------------------------------------------------
+# HARDWARE PROFILE
+# Applies tuned batch/worker/chunk defaults for known GPU configurations.
+# Leave blank ("") to use the values in this file as-is.
+# Options: rtx_4060_16gb_ram | rtx_4000_ada_cloud | a5000_24gb | a40_48gb | "" (none)
+# -----------------------------------------------------------------------------
+hardware:
+  profile: "rtx_4060_16gb_ram"   # e.g. "rtx_4060_16gb_ram" overrides batch_size/num_workers/chunk_size
+  num_workers:     2
+  prefetch_factor: 2
+
+
+# -----------------------------------------------------------------------------
+# EXPERIMENT TRACKING
+# -----------------------------------------------------------------------------
+tracking:
+  wandb_project: forex-scaling-model
+  run_name: ""   # Leave blank for auto-generated name (model_MMDD_HHMM)
+  no_wandb: false
+
+
+# -----------------------------------------------------------------------------
+# PATHS
+# (defaults use project-relative paths — only change if you mount external storage)
+# -----------------------------------------------------------------------------
+paths:
+  checkpoint_dir: ""   # blank = checkpoints/
+  data_cache:     ""   # blank = data/processed/
+
+

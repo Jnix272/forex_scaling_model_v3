@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Forex Scaling Model — Python Dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+# Install with: pip install -r requirements.txt
+
+# Core scientific stack
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.11.0
+
+# Data performance (use Polars for multi-million row tick data)
+polars>=0.19.0        # 2026-level performance for tick data
+
+# Deep Learning (optional — required for LSTM/Transformer models)
+torch>=2.1.0        # Uncomment when GPU available
+torchvision>=0.16.0
+
+# Reinforcement Learning
+ stable-baselines3>=2.2.0  # PPO / DQN agents (recommended for production)
+
+# Time-series databases (choose one)
+psycopg2-binary>=2.9.9    # PostgreSQL / TimescaleDB connector
+clickhouse-driver>=0.2.7  # ClickHouse connector
+
+# Feature computation acceleration
+numba>=0.58.0         # GPU-accelerated Triple Barrier Method
+
+# Backtesting / validation
+scikit-learn>=1.3.0   # For baseline models and cross-validation utilities
+
+# News / sentiment (optional — for Dual-Stream architecture)
+ transformers>=4.36.0      # HuggingFace FinBERT, Mistral-7B
+ kafka-python>=2.0.2       # News streaming via Kafka
+ requests>=2.31.0
+
+# Visualization (optional)
+matplotlib>=3.8.0
+plotly>=5.18.0
+
+# Async HTTP (required for Dukascopy parallel downloader)
+aiohttp>=3.9.0
+
+# Data providers (optional — connect real tick data)
+databento>=0.32.0         # Institutional tick data
+alpha_vantage>=2.3.1      # News + price data API
+yfinance>=0.2.40          # Yahoo Finance fallback for cross-asset panel
+
+# Pipeline orchestration
+# dagster>=1.6.0            # Manage news fetch → feature → DB pipeline
+
+# Logging
+loguru>=0.7.0
+prometheus_client>=0.20.0   # Metrics exporter for monitoring dashboards
+
+# Experiment tracking
+wandb>=0.16.0               # Weights & Biases run/metric tracking
+
+# Development / testing
+pytest>=7.4.0
