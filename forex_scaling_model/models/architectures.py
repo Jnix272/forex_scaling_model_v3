@@ -15,7 +15,7 @@ Shared interface: forward(x) → (batch,) scalars if num_classes==1, else (batch
 import numpy as np
 import warnings
 import inspect
-from typing import Optional
+from typing import Any, Optional
 
 try:
     import torch
