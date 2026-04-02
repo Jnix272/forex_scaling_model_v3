@@ -666,11 +666,11 @@ if __name__ == "__main__" and TORCH:
         try:
             m = Cls(input_size=F_IN)
             out = m(x)
-            print(f"  {name:16s}: in {tuple(x.shape)} → out {tuple(out.shape)}")
+            print(f"  {name:16s}: in {tuple(x.shape)} -> out {tuple(out.shape)}")
         except Exception as e:
-            print(f"  {name:16s}: ERROR — {e}")
+            print(f"  {name:16s}: ERROR - {e}")
 
     x_seq = torch.randn(B, T, F_IN)
     gnn   = GNNFromSequence(input_size=F_IN, hidden=64, num_layers=2, dropout=0.1)
     out   = gnn(x_seq)
-    print(f"  {'GNN-seq':16s}: in {tuple(x_seq.shape)} → out {tuple(out.shape)}")
+    print(f"  {'GNN-seq':16s}: in {tuple(x_seq.shape)} -> out {tuple(out.shape)}")
