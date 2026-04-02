@@ -1898,7 +1898,12 @@ def run_pretrain(model, cache_path, n_features, args, device):
     with torch.no_grad():
         _dummy = torch.zeros(1, args.seq_len, n_features, device=device)
         _out   = encoder(_dummy)
-        encoder_dim = int(_out.shape[-1] if _out.ndim == 2 else _out[:, -1, :].shape[-1])
+        if _out.ndim == 2:
+            encoder_dim = int(_out.shape[-1])
+        elif _out.ndim >= 3:
+            encoder_dim = int(_out[:, -1, :].shape[-1])
+        else:
+            encoder_dim = int(_out.shape[0])
 
     common = dict(
         d_model     = encoder_dim,

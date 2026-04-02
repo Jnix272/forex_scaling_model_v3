@@ -70,7 +70,6 @@ def _read_yahoo_daily(symbol: str, start: str, end: str) -> Optional[pd.Series]:
     except Exception:
         return None
     try:
-        # end is exclusive in yfinance, so pad by one day
         end_ts = pd.Timestamp(end, tz="UTC") + pd.Timedelta(days=1)
         df = yf.download(
             symbol,
@@ -85,10 +84,15 @@ def _read_yahoo_daily(symbol: str, start: str, end: str) -> Optional[pd.Series]:
         return None
     if df is None or len(df) == 0:
         return None
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.droplevel(1)
     col = "Adj Close" if "Adj Close" in df.columns else ("Close" if "Close" in df.columns else None)
     if col is None:
         return None
-    s = pd.to_numeric(df[col], errors="coerce")
+    col_data = df[col]
+    if isinstance(col_data, pd.DataFrame):
+        col_data = col_data.iloc[:, 0]
+    s = pd.to_numeric(col_data, errors="coerce")
     idx = pd.to_datetime(df.index, utc=True, errors="coerce")
     out = pd.Series(s.values, index=idx, name=symbol).dropna()
     if out.empty:

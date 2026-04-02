@@ -30,16 +30,16 @@ data:
   # When set, overrides pair: above. The model trains on all pairs simultaneously:
   #   features are computed per-pair then concatenated → (B, T, n_pairs × F)
   #   labels are averaged across pairs → single y per bar
-  # pairs:
-  #   - EURUSD
-  #   - GBPUSD
-  #   - USDJPY
-  #   - AUDUSD
+  pairs:
+     - EURUSD
+     - GBPUSD
+     - USDJPY
+     - AUDUSD
 
   # Learnable pair embedding dimension (appended to each pair's features before backbone).
   # 0 = disabled (pairs just concatenated — works with all models, no extra params).
   # 16 = recommended when using 3+ pairs (adds ~n_pairs×16 params to backbone input).
-  pair_embed_dim: 0
+  pair_embed_dim: 16
 
   # Timestamp alignment across pairs when bars are missing in one pair.
   # inner = only bars present in ALL pairs (recommended)
@@ -47,8 +47,8 @@ data:
   pair_align: inner
 
   # Date range (inclusive). Only used for dukascopy / lmax_historical / auto.
-  start: "2023-01-01"
-  end:   "2024-12-31"
+  start: "2019-01-01"
+  end:   "2025-12-31"
   # Dukascopy only: true = download all 24 hours; false = session-only (07–17 UTC).
   full_day_data: false
 
@@ -58,7 +58,7 @@ data:
   # Ticks processed per chunk — reduce if you hit RAM limits
   # RTX 4060 / 16 GB RAM: use 250_000
   # Cloud GPU (A100 / H100): safe at 500_000
-  chunk_size: 200_000
+  chunk_size: 100_000
 
   # Re-use cached HDF5 from a previous run (faster). Set to true to skip re-download.
   use_cache: true
@@ -98,7 +98,7 @@ model:
 # -----------------------------------------------------------------------------
 training:
   epochs:      100
-  batch_size:  112   # 2048 = optimal for RTX 4090; use 512 for RTX 4060 8 GB
+  batch_size:  102   # 2048 = optimal for RTX 4090; use 512 for RTX 4060 8 GB
   lr:          0.0001
   seq_len:     60     # Input window length in bars (1-min bars → 60 = 1 hour lookback)
   patience:    10     # Early-stop patience (epochs without improvement)

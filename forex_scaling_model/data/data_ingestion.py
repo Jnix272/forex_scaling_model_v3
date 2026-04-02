@@ -272,11 +272,10 @@ def fracDiff_FFD(series: pd.Series, d: float = 0.4, thres: float = 1e-5) -> pd.S
     """
     w = _get_weights_ffd(d, thres)
     width = len(w) - 1
-    output = {}
-    for i in range(width, len(series)):
-        loc = series.index[i - width: i + 1]
-        output[series.index[i]] = float(np.dot(w, series.loc[loc]))
-    return pd.Series(output, dtype=float)
+    # Vectorized convolution: O(N log N) via FFT or O(N*W) optimized C loop
+    # instead of O(N*W) slow Python loop.
+    res_values = np.convolve(series.values, w, mode='valid')
+    return pd.Series(res_values, index=series.index[width:], dtype=float)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

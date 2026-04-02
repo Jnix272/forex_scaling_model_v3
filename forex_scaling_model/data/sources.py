@@ -134,7 +134,7 @@ def _parse_bi5_hour(raw_bytes: bytes, dt_hour: datetime, pair: str) -> pd.DataFr
     if not raw_bytes:
         return pd.DataFrame()
 
-    point = DUKA_POINT.get(pair, 10000)
+    point = DUKA_POINT.get(pair, 100000)
     n     = len(raw_bytes) // 20
     if n == 0:
         return pd.DataFrame()

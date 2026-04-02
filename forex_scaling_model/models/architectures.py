@@ -183,8 +183,11 @@ if TORCH:
                 actual_in  = head_in
 
             self.mt_head = MultiTaskHead(actual_in, hidden, dropout)
-            # Replace backbone prediction head with Identity to expose hidden state
-            backbone.head = nn.Identity()
+            # Walk through wrapper chain to find the actual model with a head
+            target = backbone
+            while hasattr(target, 'backbone'):
+                target = target.backbone
+            target.head = nn.Identity()
 
         def forward(self, x: torch.Tensor):
             h = self.backbone(x)   # (B, head_in) — features from backbone
@@ -223,6 +226,14 @@ if TORCH:
             self.f_per_pair  = f_per_pair
             self.embed_dim   = embed_dim
             self.pair_embeds = nn.Embedding(n_pairs, embed_dim)
+
+        @property
+        def head(self) -> "nn.Module":
+            return self.backbone.head
+
+        @head.setter
+        def head(self, val: "nn.Module") -> None:
+            self.backbone.head = val
 
         def forward(self, x: "torch.Tensor") -> "torch.Tensor":
             B, T, _ = x.shape
@@ -552,24 +563,54 @@ if TORCH:
         "expert":      EXPERTEncoder,
     }
 
-    def build_model(name: str, input_size: int, seq_len: int = 60, **kwargs) -> nn.Module:
+    def build_model(name: str, input_size: int, seq_len: Optional[Any] = 60, **kwargs) -> nn.Module:
+        """
+        Model factory with automatic hyperparameter filtering.
+        Handles both explicit kwargs and argparse.Namespace objects.
+        """
+        import argparse
         cls = MODEL_REGISTRY.get(name.lower())
         if cls is None:
             raise ValueError(f"Unknown model '{name}'. Options: {list(MODEL_REGISTRY)}")
-            
-        sig = inspect.signature(cls)
-        valid_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
+
+        # 1. Expand Namespace if passed as seq_len or in kwargs
+        if isinstance(seq_len, argparse.Namespace):
+            for k, v in vars(seq_len).items():
+                if k not in kwargs: kwargs[k] = v
+            seq_len = getattr(seq_len, "seq_len", 60)
+
+        # 2. Extract valid hyperparameters from the model's signature
+        sig = inspect.signature(cls.__init__)
+        params = sig.parameters
         
-        if "seq_len" in sig.parameters and "seq_len" not in valid_kwargs:
-            valid_kwargs["seq_len"] = seq_len
-            
+        # Merge input_size and seq_len into kwargs if expected but not present
+        if "input_size" in params and "input_size" not in kwargs:
+            kwargs["input_size"] = input_size
+        if "seq_len" in params and "seq_len" not in kwargs:
+            kwargs["seq_len"] = seq_len if isinstance(seq_len, int) else 60
+
+        # Handle common aliases across architectures (e.g. heads vs nhead, hidden vs hidden_size)
+        if "hidden" in params and "hidden" not in kwargs and "hidden_size" in kwargs:
+            kwargs["hidden"] = kwargs["hidden_size"]
+        if "heads" in params and "heads" not in kwargs and "nhead" in kwargs:
+            kwargs["heads"] = kwargs["nhead"]
+
+        # Filter kwargs to only include what the constructor accepts
+        valid_kwargs = {k: v for k, v in kwargs.items() if k in params}
+        
         try:
-            model = cls(input_size=input_size, **valid_kwargs)
-        except TypeError:
-            # GNN has different signature
             model = cls(**valid_kwargs)
-        n = sum(p.numel() for p in model.parameters())
-        print(f"[Model] {name.upper()} | {n:,} parameters")
+        except TypeError as e:
+            # Fallback for models with non-standard signatures (e.g. GNN wrappers)
+            if "unexpected keyword argument" in str(e):
+                print(f"[Model] WARN: {name} init failed with filtered kwargs, retrying minimal...")
+                model = cls(input_size=input_size)
+            else:
+                raise e
+
+        n_params = sum(p.numel() for p in model.parameters())
+        print(f"[Model] {name.upper()} | {n_params:,} parameters | "
+              f"applied_params={list(valid_kwargs.keys())}")
         return model
 
 
