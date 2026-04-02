@@ -29,9 +29,9 @@ numba>=0.58.0         # GPU-accelerated Triple Barrier Method
 scikit-learn>=1.3.0   # For baseline models and cross-validation utilities
 
 # News / sentiment (optional — for Dual-Stream architecture)
- transformers>=4.36.0      # HuggingFace FinBERT, Mistral-7B
- kafka-python>=2.0.2       # News streaming via Kafka
- requests>=2.31.0
+transformers>=4.36.0      # HuggingFace FinBERT, Mistral-7B
+kafka-python>=2.0.2       # News streaming via Kafka
+requests>=2.31.0
 
 # Visualization (optional)
 matplotlib>=3.8.0

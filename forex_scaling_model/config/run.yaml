@@ -58,7 +58,7 @@ data:
   # Ticks processed per chunk — reduce if you hit RAM limits
   # RTX 4060 / 16 GB RAM: use 250_000
   # Cloud GPU (A100 / H100): safe at 500_000
-  chunk_size: 100_000
+  chunk_size: 200_000
 
   # Re-use cached HDF5 from a previous run (faster). Set to true to skip re-download.
   use_cache: true
@@ -97,8 +97,8 @@ model:
 # TRAINING — epochs, loss, early stopping
 # -----------------------------------------------------------------------------
 training:
-  epochs:      100
-  batch_size:  102   # 2048 = optimal for RTX 4090; use 512 for RTX 4060 8 GB
+  epochs:      30
+  batch_size:  202   # 2048 = optimal for RTX 4090; use 512 for RTX 4060 8 GB
   lr:          0.0001
   seq_len:     60     # Input window length in bars (1-min bars → 60 = 1 hour lookback)
   patience:    10     # Early-stop patience (epochs without improvement)

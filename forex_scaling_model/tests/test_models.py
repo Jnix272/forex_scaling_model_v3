@@ -303,7 +303,7 @@ class TestMultiTaskWrapper:
             "haelt":  64 + 64,        # lstm_hidden + d_model (both //2 of 128)
             "mamba":  64,              # d_model
             "expert": 64,              # d_model
-            "tft":    128,             # hidden_size (default build_model uses 256 but we pass 64)
+            "tft":    64,              # hidden_size (we passed 64)
         }
         head_in = head_in_map.get(model_name, 64)
 

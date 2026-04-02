@@ -1615,34 +1615,52 @@ def build_criterion(
 def validate_epoch(model, loader, crit, device, classification: bool, pbar=None):
     model.eval()
     total = 0.0; correct = 0; nt = 0
+    oom_skips = 0
     r_sum = torch.zeros(1, device=device)
     r_sq_sum = torch.zeros(1, device=device)
     for xb, yb in loader:
-        xb = xb.to(device, non_blocking=True)
-        yb = yb.to(device, non_blocking=True)
-        pred    = model(xb)
-        y_cls   = labels_to_class_index(yb)
-        if pbar is not None:
-            pbar.update(1)
+        try:
+            xb = xb.to(device, non_blocking=True)
+            yb = yb.to(device, non_blocking=True)
+            pred    = model(xb)
+            y_cls   = labels_to_class_index(yb)
 
-        if isinstance(pred, tuple):
-            logits, ret_hat, conf = pred
-            total   += _compute_loss(pred, crit, yb, classification).item()
-            correct += (logits.argmax(-1) == y_cls).sum().item()
-            d = logits.argmax(-1).float() - 1.0
-        elif classification:
-            total   += crit(pred, y_cls).item()
-            correct += (pred.argmax(-1) == y_cls).sum().item()
-            d = pred.argmax(-1).float() - 1.0
-        else:
-            total   += crit(pred, yb).item()
-            correct += (torch.sign(pred) == torch.sign(yb)).sum().item()
-            d = torch.sign(pred)
+            if isinstance(pred, tuple):
+                logits, ret_hat, conf = pred
+                total   += _compute_loss(pred, crit, yb, classification).item()
+                correct += (logits.argmax(-1) == y_cls).sum().item()
+                d = logits.argmax(-1).float() - 1.0
+            elif classification:
+                total   += crit(pred, y_cls).item()
+                correct += (pred.argmax(-1) == y_cls).sum().item()
+                d = pred.argmax(-1).float() - 1.0
+            else:
+                total   += crit(pred, yb).item()
+                correct += (torch.sign(pred) == torch.sign(yb)).sum().item()
+                d = torch.sign(pred)
 
-        r = (d * yb.float()).flatten()
-        r_sum    += r.sum()
-        r_sq_sum += (r * r).sum()
-        nt += len(yb)
+            r = (d * yb.float()).flatten()
+            r_sum    += r.sum()
+            r_sq_sum += (r * r).sum()
+            nt += len(yb)
+
+            if pbar is not None:
+                pbar.update(1)
+        except RuntimeError as e:
+            is_oom = ("out of memory" in str(e).lower()) or ("cuda error" in str(e).lower())
+            if not (device.type == "cuda" and is_oom):
+                raise
+            oom_skips += 1
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
+            if pbar is not None:
+                pbar.update(1)
+                pbar.set_postfix(loss="OOM-skip")
+            continue
+
+    if oom_skips:
+        print(f"[Val] OOM summary: skipped {oom_skips} batch(es) this epoch.")
 
     ann = float(TRAINING.get("sharpe_annualization_factor", 1.0))
     if nt == 0:

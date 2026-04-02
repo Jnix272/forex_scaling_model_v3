@@ -326,6 +326,10 @@ class ForexDataPipeline:
             bars = bars[mask]
             print(f"[Pipeline] Bars after session filter: {len(bars):,}")
 
+        if len(bars) == 0:
+            print("[Pipeline] Warning: No bars left after filtering. Returning empty DataFrame.")
+            return bars
+
         # Step 3: Fractional differentiation on close price
         if self.apply_frac_diff:
             bars["close_ffd"] = fracDiff_FFD(bars["close"], d=self.frac_diff_order)
