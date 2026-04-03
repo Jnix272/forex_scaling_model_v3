@@ -728,6 +728,57 @@ def _load_scaler_npz(cache_path: Path) -> Optional[StandardScaler]:
     return s
 
 
+def _ticks_have_usable_datetime_index(ticks: "pd.DataFrame") -> bool:
+    """True when tick index is time-like enough for OHLC resampling."""
+    idx = getattr(ticks, "index", None)
+    if idx is None or len(idx) == 0:
+        return False
+    if isinstance(idx, pd.DatetimeIndex):
+        return True
+    return bool(pd.api.types.is_datetime64_any_dtype(idx))
+
+
+def _normalize_tick_index_utc(ticks: "pd.DataFrame") -> "pd.DataFrame":
+    """Ensure a proper UTC DatetimeIndex (pandas resample requires this)."""
+    out = ticks.copy()
+    out.index = pd.to_datetime(out.index, utc=True)
+    out.index.name = "timestamp"
+    return out
+
+
+def _multipair_zero_samples_help(
+    pair_ticks: Optional[Dict[str, "pd.DataFrame"]],
+) -> str:
+    lines = ["Per-pair tick load summary:"]
+    if not pair_ticks:
+        lines.append("  (no tick dict — loader failed.)")
+        return "\n".join(lines)
+    for p, df in pair_ticks.items():
+        if df is None:
+            lines.append(f"  {p}: None")
+            continue
+        n = len(df)
+        idx = getattr(df, "index", None)
+        kind = type(idx).__name__ if idx is not None else "None"
+        dt_ok = _ticks_have_usable_datetime_index(df)
+        lines.append(
+            f"  {p}: ticks={n:,} index={kind} datetime_ok={dt_ok}"
+        )
+        if n > 0 and idx is not None:
+            try:
+                lines.append(
+                    f"       range: {idx.min()} → {idx.max()}"
+                )
+            except Exception:
+                pass
+    lines.append(
+        "If every pair shows ticks=0: hour files may be empty (blocked download or bad cache). "
+        "Delete data/raw/dukascopy/<PAIR>/ and rerun, shorten the date range, or set "
+        "data.full_day_data: true. If ticks>0 but datetime_ok=False, tick index is malformed."
+    )
+    return "\n".join(lines)
+
+
 def _build_chunk(
     ticks_chunk: "pd.DataFrame",
     fe:          FeatureEngineer,
@@ -746,8 +797,10 @@ def _build_chunk(
     # Graceful exit for empty/bad chunks (e.g., all vendor hour files missing/empty)
     if ticks_chunk is None or len(ticks_chunk) == 0:
         return np.array([]), np.array([]), 0
-    if not isinstance(getattr(ticks_chunk, "index", None), pd.DatetimeIndex):
+    if not _ticks_have_usable_datetime_index(ticks_chunk):
         return np.array([]), np.array([]), 0
+    if not isinstance(ticks_chunk.index, pd.DatetimeIndex):
+        ticks_chunk = _normalize_tick_index_utc(ticks_chunk)
 
     pipeline = ForexDataPipeline(bar_freq="1min", session_filter=False,
                                   apply_frac_diff=False)
@@ -898,6 +951,7 @@ def _build_multipair_dataset(
     n_features    = 0
     total_samples = 0
     h5_file       = None
+    pair_ticks: Optional[Dict[str, "pd.DataFrame"]] = None
 
     if HDF5:
         h5_file = h5py.File(cache_path, "w")
@@ -982,7 +1036,8 @@ def _build_multipair_dataset(
 
     if total_samples == 0:
         raise RuntimeError(
-            "[MultiPair] No usable samples produced. Check date range and data source."
+            "[MultiPair] No usable samples produced. Check date range and data source.\n"
+            + _multipair_zero_samples_help(pair_ticks)
         )
 
     # ── Finalise cache ───────────────────────────────────────────────────────
@@ -1285,9 +1340,24 @@ class MemmapSequenceDataset(Dataset):
         real_idx = int(self.indices[idx])
         if self.use_hdf5:
             if self._h5 is None:
-                self._h5 = h5py.File(self.cache_path, "r", swmr=True)
-            X = self._h5["X"][real_idx]
-            y = float(self._h5["y"][real_idx])
+                # SWMR is not supported on Windows and causes filter read failures
+                self._h5 = h5py.File(self.cache_path, "r")
+            
+            # HDF5 LZF decompression in multiprocessing can sometimes throw transient read errors
+            for attempt in range(5):
+                try:
+                    X = self._h5["X"][real_idx]
+                    y = float(self._h5["y"][real_idx])
+                    break
+                except OSError:
+                    import time
+                    time.sleep(0.05)
+                    try:
+                        self._h5.close()
+                    except: pass
+                    self._h5 = h5py.File(self.cache_path, "r")
+                    if attempt == 4:
+                        raise
         else:
             X = np.array(self.X_mmap[real_idx])
             y = float(self.y_mmap[real_idx])

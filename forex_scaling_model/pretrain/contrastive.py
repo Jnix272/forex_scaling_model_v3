@@ -111,9 +111,18 @@ if TORCH:
     class ProjectionHead(nn.Module):
         def __init__(self, d_model=128, proj_dim=128):
             super().__init__()
+            d = int(d_model)
+            # iTransformer / wide heads can be 100k+ dims; never use a square hidden layer
+            # (would allocate tens of GB). Aggressive bottleneck keeps RAM/GPU memory sane.
+            if d > 8192:
+                hidden_dim = 512
+            elif d > 2048:
+                hidden_dim = 1024
+            else:
+                hidden_dim = min(d, 2048)
             self.net = nn.Sequential(
-                nn.Linear(d_model, d_model), nn.ReLU(),
-                nn.Linear(d_model, proj_dim),
+                nn.Linear(d, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, proj_dim),
             )
         def forward(self, x): return F.normalize(self.net(x), dim=-1)
 
